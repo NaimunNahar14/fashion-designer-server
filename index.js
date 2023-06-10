@@ -69,6 +69,16 @@ async function run() {
       next();
     }
 
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email }
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== 'instructor') {
+        return res.status(403).send({ error: true, message: 'forbidden message' });
+      }
+      next();
+    }
+
 
     app.get('/instructors', async (req, res) => {
       const result = await instructorsCollection.find().toArray();
@@ -78,6 +88,11 @@ async function run() {
 
     app.get('/classes', async (req, res) => {
       const result = await classesCollection.find().toArray();
+      res.send(result);
+    })
+    app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
+      const newClass = req.body;
+      const result = await classesCollection.insertOne(newClass)
       res.send(result);
     })
 
@@ -113,7 +128,7 @@ async function run() {
     })
 
 
-    app.get('/users',verifyJWT,verifyAdmin, async (req, res) => {
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
 
