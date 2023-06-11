@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 
@@ -51,6 +52,7 @@ async function run() {
     const instructorsCollection = client.db("StyleMakerDB").collection("instructors");
     const cartCollection = client.db("StyleMakerDB").collection("carts");
     const usersCollection = client.db("StyleMakerDB").collection("users");
+    const paymentCollection = client.db("StyleMakerDB").collection("payments");
 
 
     app.post('/jwt', (req, res) => {
@@ -90,6 +92,8 @@ async function run() {
       const result = await classesCollection.find().toArray();
       res.send(result);
     })
+
+
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       const result = await classesCollection.insertOne(newClass)
@@ -100,6 +104,13 @@ async function run() {
       const classItem = req.body;
       // console.log(classItem);
       const result = await cartCollection.insertOne(classItem);
+      res.send(result);
+    })
+    app.get("/carts/dashboard/payment/:id", async (req, res) => {
+      console.log(req.params.id);
+      const result = await cartCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
       res.send(result);
     })
 
@@ -126,6 +137,54 @@ async function run() {
       const result = await cartCollection.deleteOne(query);
       res.send(result);
     })
+
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+      const deleteResult = await cartCollection.deleteMany(query)
+
+      res.send({ insertResult, deleteResult });
+    })
+
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+
+      try {
+        // Insert payment record into the payment collection
+        const insertResult = await paymentCollection.insertOne(payment);
+
+        // Update seat availability for the classes in the cart
+        const classIds = payment.cartItems.map((id) => ObjectId(id));
+        const updateResult = await classesCollection.updateMany(
+          { _id: { $in: classIds }, availableSeats: { $gt: 0 } }, // Only update classes with available seats
+          { $inc: { availableSeats: -1 } }
+        );
+
+        // Delete cart items for the classes in the payment
+        const deleteResult = await cartCollection.deleteMany({ _id: { $in: classIds } });
+
+        res.send({ insertResult, updateResult, deleteResult });
+      } catch (error) {
+        console.error('Error processing payment:', error);
+        res.status(500).json({ error: 'Failed to process payment' });
+      }
+    });
 
 
     app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
