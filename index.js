@@ -47,7 +47,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const classesCollection = client.db("StyleMakerDB").collection("classes");
     const instructorsCollection = client.db("StyleMakerDB").collection("instructors");
     const cartCollection = client.db("StyleMakerDB").collection("carts");
@@ -85,10 +85,7 @@ async function run() {
     }
 
 
-    app.get('/instructors', async (req, res) => {
-      const result = await instructorsCollection.find().toArray();
-      res.send(result);
-    })
+    
 
     app.post('/reviews', async (req, res) => {
       const addReview = req.body;
@@ -97,6 +94,11 @@ async function run() {
     })
     app.get('/reviews', async (req, res) => {
       const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/instructors', async (req, res) => {
+      const result = await instructorsCollection.find().toArray();
       res.send(result);
     })
 
@@ -116,6 +118,23 @@ async function run() {
       const result = await classesCollection.updateOne(filter, updateDoc)
       res.send(result);
     })
+
+    app.get('/classes', verifyJWT, verifyInstructor, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ error: true, message: 'forbidden access' })
+      }
+
+      const query = { email: email };
+      const result = await classesCollection.find(query).toArray();
+      res.send(result);
+    });
 
 
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
