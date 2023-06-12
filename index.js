@@ -100,16 +100,10 @@ async function run() {
       res.send(result);
     })
 
-
-
-
-
-
     app.get('/classes', async (req, res) => {
       const result = await classesCollection.find().toArray();
       res.send(result);
     })
-
 
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
@@ -181,21 +175,14 @@ async function run() {
 
     app.post('/payments', verifyJWT, async (req, res) => {
       const payment = req.body;
-
       try {
-        // Insert payment record into the payment collection
         const insertResult = await paymentCollection.insertOne(payment);
-
-        // Update seat availability for the classes in the cart
         const classIds = payment.cartItems.map((id) => ObjectId(id));
         const updateResult = await classesCollection.updateMany(
-          { _id: { $in: classIds }, enrolledClass: { $gt: 0 } }, // Only update classes with available seats
+          { _id: { $in: classIds }, enrolledClass: { $gt: 0 } }, 
           { $inc: { availableSeats: -1 } }
         );
-
-        // Delete cart items for the classes in the payment
         const deleteResult = await cartCollection.deleteMany({ _id: { $in: classIds } });
-
         res.send({ insertResult, updateResult, deleteResult });
       } catch (error) {
         console.error('Error processing payment:', error);
@@ -276,12 +263,6 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
     })
-
-
-
-
-
-
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
