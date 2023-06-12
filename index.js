@@ -104,7 +104,20 @@ async function run() {
       const result = await classesCollection.find().toArray();
       res.send(result);
     })
-
+    
+    app.patch('/classes/:id', async (req, res) =>{
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id)};
+      const updatedClass = req.body;
+      const updateDoc = {
+        $set: {
+          status: updatedClass.status
+        },
+      };
+      const result = await classesCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    })
+    
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       const result = await classesCollection.insertOne(newClass)
@@ -163,27 +176,25 @@ async function run() {
       })
     })
 
-    app.post('/payments', verifyJWT, async (req, res) => {
-      const payment = req.body;
-      const insertResult = await paymentCollection.insertOne(payment);
+    // app.post('/payments', verifyJWT, async (req, res) => {
+    //   const payment = req.body;
+    //   const insertResult = await paymentCollection.insertOne(payment);
 
-      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
-      const deleteResult = await cartCollection.deleteMany(query)
+    //   const query = { _id: { $in: payment.singleCart.map(id => new ObjectId(id)) } }
+    //   const deleteResult = await cartCollection.deleteMany(query)
 
-      res.send({ insertResult, deleteResult });
-    })
+    //   res.send({ insertResult, deleteResult });
+    // })
 
-    app.post('/payments', verifyJWT, async (req, res) => {
-      const payment = req.body;
+    app.post('/payments', async (req, res) => {
+      const { payment } = req.body; // Destructure singleCart from the request body
       try {
         const insertResult = await paymentCollection.insertOne(payment);
-        const classIds = payment.cartItems.map((id) => ObjectId(id));
+        // Update to access the correct property
         const updateResult = await classesCollection.updateMany(
-          { _id: { $in: classIds }, enrolledClass: { $gt: 0 } }, 
           { $inc: { availableSeats: -1 } }
         );
-        const deleteResult = await cartCollection.deleteMany({ _id: { $in: classIds } });
-        res.send({ insertResult, updateResult, deleteResult });
+        res.send({ insertResult, updateResult });
       } catch (error) {
         console.error('Error processing payment:', error);
         res.status(500).json({ error: 'Failed to process payment' });
@@ -263,6 +274,7 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
     })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
