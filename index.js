@@ -104,20 +104,7 @@ async function run() {
       const result = await classesCollection.find().toArray();
       res.send(result);
     })
-    
-    app.patch('/classes/:id', async (req, res) =>{
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id)};
-      const updatedClass = req.body;
-      const updateDoc = {
-        $set: {
-          status: updatedClass.status
-        },
-      };
-      const result = await classesCollection.updateOne(filter, updateDoc)
-      res.send(result);
-    })
-    
+
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       const result = await classesCollection.insertOne(newClass)
