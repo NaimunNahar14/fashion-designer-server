@@ -53,6 +53,9 @@ async function run() {
     const cartCollection = client.db("StyleMakerDB").collection("carts");
     const usersCollection = client.db("StyleMakerDB").collection("users");
     const paymentCollection = client.db("StyleMakerDB").collection("payments");
+    const reviewsCollection = client.db("StyleMakerDB").collection("reviews");
+
+
 
 
     app.post('/jwt', (req, res) => {
@@ -86,6 +89,20 @@ async function run() {
       const result = await instructorsCollection.find().toArray();
       res.send(result);
     })
+
+    app.post('/reviews', async (req, res) => {
+      const addReview = req.body;
+      const result = await reviewsCollection.insertOne(addReview)
+      res.send(result);
+    })
+    app.get('/reviews', async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    })
+
+
+
+
 
 
     app.get('/classes', async (req, res) => {
@@ -172,7 +189,7 @@ async function run() {
         // Update seat availability for the classes in the cart
         const classIds = payment.cartItems.map((id) => ObjectId(id));
         const updateResult = await classesCollection.updateMany(
-          { _id: { $in: classIds }, availableSeats: { $gt: 0 } }, // Only update classes with available seats
+          { _id: { $in: classIds }, enrolledClass: { $gt: 0 } }, // Only update classes with available seats
           { $inc: { availableSeats: -1 } }
         );
 
